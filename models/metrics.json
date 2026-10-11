@@ -1,0 +1,55 @@
+{
+  "production_impact_pct": {
+    "rmse": 9.729913170120367,
+    "mae": 7.819924806733131,
+    "r2": 0.6974280285596686,
+    "n_train": 80000,
+    "n_test": 20000,
+    "features": [
+      "disruption_type",
+      "industry",
+      "supplier_tier",
+      "supplier_region",
+      "supplier_size",
+      "has_backup_supplier",
+      "disruption_severity"
+    ]
+  },
+  "revenue_loss_usd": {
+    "rmse": 4390124.628028681,
+    "mae": 1616087.2489075726,
+    "r2": 0.3753094423576512,
+    "n_train": 80000,
+    "n_test": 20000,
+    "features": [
+      "disruption_type",
+      "industry",
+      "supplier_tier",
+      "supplier_region",
+      "supplier_size",
+      "has_backup_supplier",
+      "disruption_severity",
+      "production_impact_pct"
+    ]
+  },
+  "full_recovery_days": {
+    "rmse": 38.16969556047949,
+    "mae": 26.270029067993164,
+    "r2": 0.5510045289993286,
+    "n_train": 80000,
+    "n_test": 20000,
+    "features": [
+      "disruption_type",
+      "industry",
+      "supplier_tier",
+      "supplier_region",
+      "supplier_size",
+      "has_backup_supplier",
+      "disruption_severity",
+      "response_type",
+      "response_time_days",
+      "partial_recovery_days",
+      "permanent_supplier_change"
+    ]
+  }
+}
