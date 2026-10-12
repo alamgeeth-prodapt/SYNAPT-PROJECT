@@ -8,11 +8,13 @@ Implements the 2-step decoupled architecture:
 """
 
 import asyncio
+import json
+import os
 import re
 import time
 from typing import Any
 from sqlalchemy import text
-from app.services.db_service import engine
+from app.core.database import engine
 from app.services.synapt_service import SynaptService
 
 # ==============================================================================
@@ -528,6 +530,76 @@ def synthesize_sql(
     return sql
 
 
+def synthesize_sql_with_gemini(
+    query: str,
+    schema_spec: dict[str, Any],
+    injected_classes: dict[str, Any],
+    limit: int = 50,
+) -> tuple[str, str]:
+    """
+    Synthesizes grounded SQL using Google Gemini API (gemini-2.0-flash / gemini-2.0-flash-lite).
+    Passes schema and Synapt-retrieved classes to generate safe, optimized queries.
+    Gracefully falls back to deterministic synthesize_sql() on failure or missing key.
+    """
+    gemini_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if not gemini_key:
+        return synthesize_sql(query, schema_spec, injected_classes, limit=limit), "deterministic_sql_builder"
+
+    try:
+        from google import genai
+
+        client = genai.Client(api_key=gemini_key)
+
+        classes_summary = {}
+        for col, meta in injected_classes.items():
+            classes_summary[col] = meta.get("classes", [])
+
+        prompt = f"""You are an expert MySQL SQL Developer for a supply chain crisis management system.
+Given the user request, the database schema for the unified view `v_disruption_details`, and the controlled classes retrieved from Synapt, generate a valid read-only MySQL SELECT query.
+
+User Query: "{query}"
+
+Target View: `v_disruption_details`
+Available Columns:
+disruption_id, disruption_type, industry, supplier_tier, supplier_region, supplier_size,
+has_backup_supplier, disruption_severity, production_impact_pct, revenue_loss_usd,
+response_type, response_time_days, partial_recovery_days, full_recovery_days,
+permanent_supplier_change, resilience_score, prioritization_level, top_risk_driver, recommended_strategy
+
+Synapt Grounding Classes:
+{json.dumps(classes_summary, indent=2)}
+
+Rules:
+1. ONLY query `v_disruption_details`. Never query any other table or view.
+2. Generate ONLY a single SELECT query. Never use DROP, DELETE, INSERT, UPDATE, ALTER.
+3. For categorical filters, match the values against the controlled classes exactly.
+4. Support aggregations (COUNT, AVG, SUM, GROUP BY) if asked for summary/averages, otherwise SELECT disruption_id, disruption_type, industry, supplier_tier, supplier_region, disruption_severity, production_impact_pct, revenue_loss_usd, response_type, full_recovery_days, resilience_score.
+5. Include an appropriate ORDER BY (e.g. revenue_loss_usd DESC) and LIMIT {limit}.
+6. Output ONLY the raw SQL query with no explanation, no backticks, and no markdown formatting.
+"""
+
+        for model_name in ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash"]:
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt,
+                )
+                raw_text = response.text.strip() if response and response.text else ""
+                raw_text = re.sub(r"^```(?:sql)?\s*", "", raw_text, flags=re.IGNORECASE)
+                raw_text = re.sub(r"\s*```$", "", raw_text).strip()
+
+                if raw_text.upper().startswith("SELECT"):
+                    valid = validate_sql_query(raw_text)
+                    return valid, f"gemini_sql_builder ({model_name})"
+            except Exception:
+                continue
+
+    except Exception:
+        pass
+
+    return synthesize_sql(query, schema_spec, injected_classes, limit=limit), "deterministic_sql_builder"
+
+
 # ==============================================================================
 # Step 4: Safety Guardrails Validator
 # ==============================================================================
@@ -599,8 +671,8 @@ def build_and_execute_sql(query: str, limit: int = 50, use_synapt: bool = True) 
     # 2. Just-In-Time Value Injection (via Synapt Trident MCP)
     injected_classes = get_classes_for_columns(schema_spec["filter_columns"], use_synapt=use_synapt)
 
-    # 3. SQL Synthesis
-    raw_sql = synthesize_sql(query, schema_spec, injected_classes, limit=limit)
+    # 3. SQL Synthesis (Gemini LLM grounded with Synapt classes, fallback to deterministic)
+    raw_sql, sql_engine_used = synthesize_sql_with_gemini(query, schema_spec, injected_classes, limit=limit)
 
     # 4. Guardrail Validation
     validated_sql = validate_sql_query(raw_sql)
@@ -625,6 +697,7 @@ def build_and_execute_sql(query: str, limit: int = 50, use_synapt: bool = True) 
         "injected_classes_count": len(injected_classes),
         "classes_source": classes_source,
         "generated_sql": validated_sql,
+        "sql_engine": sql_engine_used,
         "row_count": len(rows),
         "columns": columns,
         "records": rows,
@@ -658,7 +731,7 @@ async def build_and_execute_sql_async(
                 "source": source,
             }
 
-    raw_sql = synthesize_sql(query, schema_spec, injected_classes, limit=limit)
+    raw_sql, sql_engine_used = synthesize_sql_with_gemini(query, schema_spec, injected_classes, limit=limit)
     validated_sql = validate_sql_query(raw_sql)
 
     with engine.connect() as conn:
@@ -680,6 +753,7 @@ async def build_and_execute_sql_async(
         "injected_classes_count": len(injected_classes),
         "classes_source": classes_source,
         "generated_sql": validated_sql,
+        "sql_engine": sql_engine_used,
         "row_count": len(rows),
         "columns": columns,
         "records": rows,

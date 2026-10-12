@@ -9,15 +9,15 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from app.agents.schemas import (
+from app.agents.coordinator.schemas import (
     IncidentInput,
     ExecutiveDossier,
 )
-from app.agents.investigation_agent import InvestigationAgent
-from app.agents.impact_agent import ImpactAgent
-from app.agents.response_agent import ResponseAgent
-from app.agents.recovery_agent import RecoveryAgent
-from app.agents.judge import LLMJudgeAgent
+from app.agents.coordinator.investigation_agent import InvestigationAgent
+from app.agents.coordinator.impact_agent import ImpactAgent
+from app.agents.coordinator.response_agent import ResponseAgent
+from app.agents.coordinator.recovery_agent import RecoveryAgent
+from app.agents.coordinator.judge import LLMJudgeAgent
 
 
 class DisruptionCoordinator:

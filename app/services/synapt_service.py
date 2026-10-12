@@ -43,6 +43,7 @@ class SynaptService:
         self.username = os.getenv("SYNAPT_USERNAME")
         self.password = os.getenv("SYNAPT_PASSWORD")
         self.default_provider_id = os.getenv("SYNAPT_PROVIDER_ID")
+        self.sop_provider_id = os.getenv("SYNAPT_SOP_PROVIDER_ID", "supply_chain_sop")
         self.default_top_k = int(os.getenv("SYNAPT_TOP_K", "5"))
         graph_hops = os.getenv("SYNAPT_GRAPH_HOPS")
         self.default_graph_hops = int(graph_hops) if graph_hops else None
@@ -53,7 +54,7 @@ class SynaptService:
                 "SYNAPT_AUTH_BASE, SYNAPT_MCP_URL, SYNAPT_USERNAME, SYNAPT_PASSWORD are required."
             )
 
-        self._client = httpx.AsyncClient(timeout=30)
+        self._client = httpx.AsyncClient(timeout=30, verify=False)
         self._token: str | None = None
         self._initialized = False
         self._schema_cache: dict[str, dict] = {}
@@ -393,6 +394,82 @@ class SynaptService:
         return await self._call_tool(
             "trident_get_procedures", {"provider_id": self._provider(provider_id), "query": query}
         )
+
+    async def retrieve_sop_chunks(self, query: str, top_k: int = 5) -> dict[str, Any]:
+        """
+        Retrieves relevant SOP clauses and chunks directly from Synapt SOP Retriever (supply_chain_sop)
+        acting as an embedding/vector storage system (similar to ChromaDB).
+        Retrieves the actual document text and chunks ingested in Synapt without searching local SOP directory.
+        """
+        # Step 1: Run semantic retrieval query against Synapt embedding store
+        synapt_result = None
+        raw_chunks = []
+        try:
+            synapt_result = await self.query(
+                question=query,
+                top_k=top_k,
+                provider_id=self.sop_provider_id,
+            )
+        except Exception as e:
+            synapt_result = {"error": f"Synapt query failed: {str(e)}"}
+
+        # Step 2: Retrieve raw document chunks from Synapt vector storage
+        try:
+            chunks_call = await self.get_chunks(
+                query=query,
+                top_k=top_k,
+                provider_id=self.sop_provider_id,
+            )
+            if isinstance(chunks_call, list):
+                raw_chunks = chunks_call
+        except Exception:
+            # Fall back to chunks returned in trident_query if get_chunks tool encounters error
+            if isinstance(synapt_result, dict) and synapt_result.get("chunks"):
+                raw_chunks = synapt_result.get("chunks", [])
+
+        # Step 3: Extract actual information from document chunks
+        formatted_chunks = {}
+        document_chunks = []
+        for idx, chunk in enumerate(raw_chunks):
+            if isinstance(chunk, dict):
+                c_id = chunk.get("chunk_id", f"chunk_{idx+1}")
+                c_text = chunk.get("text", "").strip()
+                c_src = chunk.get("source_file", "supply_chain_sop")
+                c_type = chunk.get("doc_type", "sop")
+                c_score = chunk.get("score")
+
+                document_chunks.append({
+                    "chunk_id": c_id,
+                    "text": c_text,
+                    "source_file": c_src,
+                    "doc_type": c_type,
+                    "score": c_score,
+                })
+                # Key for structured display
+                formatted_chunks[f"chunk_{idx+1}_{c_id[:12]}"] = {
+                    "chunk_id": c_id,
+                    "source_document": c_src,
+                    "content": c_text,
+                }
+
+        # Step 4: Extract grounded answer synthesized by Synapt directly from ingested document
+        live_answer = synapt_result.get("answer") if isinstance(synapt_result, dict) else None
+        chunks_used_ids = synapt_result.get("chunks_used", []) if isinstance(synapt_result, dict) else []
+
+        return {
+            "provider": self.sop_provider_id,
+            "storage_system": "Synapt Trident Vector & Graph Store",
+            "query": query,
+            "answer": live_answer,
+            "synapt_live_answer": live_answer,
+            "chunks_count": len(document_chunks),
+            "chunks_used_ids": chunks_used_ids,
+            "document_chunks": document_chunks,
+            "chunks": formatted_chunks if formatted_chunks else {
+                "chunk_1_synapt_answer": live_answer or "No matching chunks found in Synapt embedding store."
+            },
+            "source": "synapt_embedding_retriever",
+        }
 
 
 async def _demo():

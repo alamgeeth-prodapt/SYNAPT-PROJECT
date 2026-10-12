@@ -174,3 +174,15 @@ def test_human_feedback(auth_headers):
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "recorded"
+
+
+def test_get_historical_disruptions_pagination(auth_headers):
+    response = client.get("/api/v1/disruptions?page=1&page_size=25", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total_records"] == 100000
+    assert data["page"] == 1
+    assert data["page_size"] == 25
+    assert len(data["records"]) == 25
+    assert "disruption_id" in data["records"][0]
+

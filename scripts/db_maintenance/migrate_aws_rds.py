@@ -12,7 +12,7 @@ from sqlalchemy import text
 
 sys.path.append("sql")
 from sql.db import engine
-from app.services.populate_assessments import compute_assessments, DATA_PATH
+from scripts.db_maintenance.populate_assessments import compute_assessments, DATA_PATH
 
 
 def main():

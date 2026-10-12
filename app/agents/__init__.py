@@ -1,40 +1,64 @@
 """
-Multi-Agent Orchestration Package (Phase 4).
-Exports all specialized agents and workflow coordinators.
+Multi-Agent Orchestration Package.
+Exports both:
+1. Traditional Disruption Coordinator Pipeline (app.agents.coordinator)
+2. LangGraph Supervisor + CrewAI Executive Copilot (app.agents.copilot)
 """
 
-from app.agents.schemas import (
+from app.agents.coordinator import (
     IncidentInput,
     InvestigationResult,
     ImpactResult,
     ResponseResult,
     RecoveryResult,
-    JudgeVerdict,
     ExecutiveDossier,
-    StrategyComparison,
     Milestone,
+    StrategyComparison,
+    JudgeVerdict,
+    InvestigationAgent,
+    ImpactAgent,
+    ResponseAgent,
+    RecoveryAgent,
+    LLMJudgeAgent,
+    DisruptionCoordinator,
 )
-from app.agents.investigation_agent import InvestigationAgent
-from app.agents.impact_agent import ImpactAgent
-from app.agents.response_agent import ResponseAgent
-from app.agents.recovery_agent import RecoveryAgent
-from app.agents.judge import LLMJudgeAgent
-from app.agents.coordinator import DisruptionCoordinator
+from app.agents.copilot import (
+    CopilotChatRequest,
+    CopilotChatResponse,
+    AgentTrace,
+    AgentDrafterTrace,
+    AgentReviewerTrace,
+    CopilotSupervisorState,
+    TwoAgentCopilotOrchestrator,
+    copilot_graph,
+    build_copilot_graph,
+)
 
 __all__ = [
+    # Coordinator
     "IncidentInput",
     "InvestigationResult",
     "ImpactResult",
     "ResponseResult",
     "RecoveryResult",
-    "JudgeVerdict",
     "ExecutiveDossier",
-    "StrategyComparison",
     "Milestone",
+    "StrategyComparison",
+    "JudgeVerdict",
     "InvestigationAgent",
     "ImpactAgent",
     "ResponseAgent",
     "RecoveryAgent",
     "LLMJudgeAgent",
     "DisruptionCoordinator",
+    # Copilot
+    "CopilotChatRequest",
+    "CopilotChatResponse",
+    "AgentTrace",
+    "AgentDrafterTrace",
+    "AgentReviewerTrace",
+    "CopilotSupervisorState",
+    "TwoAgentCopilotOrchestrator",
+    "copilot_graph",
+    "build_copilot_graph",
 ]

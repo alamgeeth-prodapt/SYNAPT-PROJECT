@@ -7,7 +7,7 @@ Responsible for:
   4. Issuing formal governance verdict: APPROVED or FLAGGED_FOR_HUMAN_REVIEW.
 """
 
-from app.agents.schemas import (
+from app.agents.coordinator.schemas import (
     IncidentInput,
     ImpactResult,
     ResponseResult,

@@ -10,7 +10,7 @@ Responsible for:
 from typing import Any
 from app.services.ml_service import MLService
 from app.services.shap_service import SHAPService
-from app.agents.schemas import IncidentInput, ImpactResult
+from app.agents.coordinator.schemas import IncidentInput, ImpactResult
 
 
 class ImpactAgent:

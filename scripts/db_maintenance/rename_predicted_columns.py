@@ -44,7 +44,7 @@ def rename_columns(engine: Engine, label: str):
 
 
 def main():
-    from app.services.db_service import engine as local_engine
+    from app.core.database import engine as local_engine
     rename_columns(local_engine, "LOCAL")
 
     import sys

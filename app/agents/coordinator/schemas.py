@@ -72,6 +72,79 @@ class IncidentInput(BaseModel):
                 return int(digits)
         return int(v)
 
+    @field_validator("supplier_region", mode="before")
+    @classmethod
+    def normalize_region(cls, v: Any) -> str:
+        if isinstance(v, str):
+            v_clean = v.strip()
+            region_map = {
+                "middle east": "Africa/Middle East",
+                "africa": "Africa/Middle East",
+                "africa/middle east": "Africa/Middle East",
+                "latin america": "South America",
+                "south america": "South America",
+                "apac": "Asia-Pacific",
+                "asia": "Asia-Pacific",
+                "asia-pacific": "Asia-Pacific",
+                "na": "North America",
+                "north america": "North America",
+                "eu": "Europe",
+                "europe": "Europe",
+            }
+            low = v_clean.lower()
+            if low in region_map:
+                return region_map[low]
+        return v
+
+    @field_validator("industry", mode="before")
+    @classmethod
+    def normalize_industry(cls, v: Any) -> str:
+        if isinstance(v, str):
+            v_clean = v.strip()
+            ind_map = {
+                "auto": "Automotive",
+                "automotive": "Automotive",
+                "electronics": "Electronics",
+                "chips": "Electronics",
+                "semiconductors": "Electronics",
+                "pharma": "Pharmaceuticals",
+                "pharmaceuticals": "Pharmaceuticals",
+                "consumer goods": "Consumer Goods",
+                "retail": "Consumer Goods",
+                "aerospace": "Aerospace",
+                "aviation": "Aerospace",
+                "energy": "Consumer Goods",
+            }
+            low = v_clean.lower()
+            if low in ind_map:
+                return ind_map[low]
+        return v
+
+    @field_validator("disruption_type", mode="before")
+    @classmethod
+    def normalize_disruption_type(cls, v: Any) -> str:
+        if isinstance(v, str):
+            v_clean = v.strip()
+            type_map = {
+                "factory": "Factory Incident",
+                "factory incident": "Factory Incident",
+                "fire": "Factory Incident",
+                "cyber": "Cyber Attack",
+                "cyber attack": "Cyber Attack",
+                "ransomware": "Cyber Attack",
+                "port": "Port Congestion",
+                "port congestion": "Port Congestion",
+                "strike": "Labor Strike",
+                "labor strike": "Labor Strike",
+                "geopolitical": "Geopolitical",
+                "natural disaster": "Natural Disaster",
+            }
+            low = v_clean.lower()
+            if low in type_map:
+                return type_map[low]
+        return v
+
+
 
 # ==============================================================================
 # Agent Output Schemas

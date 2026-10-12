@@ -9,9 +9,9 @@ Responsible for:
 
 from typing import Any
 from sqlalchemy import text
-from app.services.db_service import engine
+from app.core.database import engine
 from app.services.ml_service import MLService
-from app.agents.schemas import IncidentInput, ResponseResult, RecoveryResult, Milestone
+from app.agents.coordinator.schemas import IncidentInput, ResponseResult, RecoveryResult, Milestone
 
 
 class RecoveryAgent:

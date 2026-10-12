@@ -10,8 +10,8 @@ Responsible for:
 from typing import Any
 from decimal import Decimal
 from sqlalchemy import text
-from app.services.db_service import engine
-from app.agents.schemas import IncidentInput, InvestigationResult
+from app.core.database import engine
+from app.agents.coordinator.schemas import IncidentInput, InvestigationResult
 
 
 class InvestigationAgent:

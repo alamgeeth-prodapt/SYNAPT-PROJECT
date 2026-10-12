@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from sqlalchemy import text
-from app.services.db_service import engine, init_assessment_table
+from app.core.database import engine, init_assessment_table
 
 DATA_PATH = Path("data/processed/disruptions_clean.parquet")
 

@@ -10,8 +10,8 @@ Responsible for:
 from decimal import Decimal
 from typing import Any
 from sqlalchemy import text
-from app.services.db_service import engine
-from app.agents.schemas import IncidentInput, ImpactResult, ResponseResult, StrategyComparison
+from app.core.database import engine
+from app.agents.coordinator.schemas import IncidentInput, ImpactResult, ResponseResult, StrategyComparison
 
 
 STRATEGY_CHECKLISTS: dict[str, list[str]] = {
