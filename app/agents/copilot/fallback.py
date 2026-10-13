@@ -67,7 +67,19 @@ def run_empirical_two_agent_synthesis(
     ml_rev = f"${ml_metrics.get('forecasted_revenue_loss_usd', 1850000):,.2f}" if ml_metrics and isinstance(ml_metrics, dict) and ml_metrics.get('forecasted_revenue_loss_usd') else "$1,850,000.00"
     ml_rec = f"{ml_metrics.get('forecasted_recovery_days', 64)} days" if ml_metrics and isinstance(ml_metrics, dict) and ml_metrics.get('forecasted_recovery_days') else "64 days"
 
-    if intent == "sop":
+    if intent == "general":
+        draft_report = (
+            "## Synapt Executive AI Copilot\n\n"
+            f"Hello! I am doing well, thank you for asking. As **Synapt's Executive AI Copilot**, I am standing by to assist "
+            "with global supply chain intelligence, operational resilience, and disruption management.\n\n"
+            "Here is how I can assist your operations:\n\n"
+            "* **Disruption Analytics & Database Queries:** Query 100,000 supply chain disruption records for benchmarks on downtime, revenue loss, and recovery velocity (e.g., *'Show average loss for Tier-1 APAC disruptions'*).\n"
+            "* **Predictive ML Risk Forecasting:** Forecast production impact, financial losses, and recovery timelines using trained XGBoost models.\n"
+            "* **Standard Operating Playbooks (SOPs):** Retrieve verified operational protocols and containment checklists via Synapt Trident (e.g., *'What is SOP-02 for Cyber Attacks?'*).\n"
+            "* **Executive Crisis Memoranda:** Generate end-to-end multi-agent crisis evaluations for active operational threats.\n\n"
+            "How can I assist your supply chain operations today?"
+        )
+    elif intent == "sop":
         live_sop_ans = sop_data.get("answer") if sop_data else None
         doc_chunks = sop_data.get("document_chunks") if sop_data else []
         chunk_details = ""

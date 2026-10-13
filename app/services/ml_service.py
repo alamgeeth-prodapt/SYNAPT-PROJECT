@@ -20,6 +20,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 from xgboost import XGBRegressor
 
@@ -149,7 +150,8 @@ class MLService:
 
         incident_with_impact = {**incident, "production_impact_pct": impact_pct}
         X = self.format_input_df(incident_with_impact, "revenue_loss_usd")
-        return float(self.loss_model.predict(X)[0])
+        pred_log = float(self.loss_model.predict(X)[0])
+        return max(0.0, float(np.expm1(pred_log)))
 
     def predict_recovery_days(
         self, incident: dict[str, Any], scenario_overrides: dict[str, Any] | None = None

@@ -14,6 +14,7 @@ from app.routers import (
     disruptions_router,
     query_router,
     ml_router,
+    analytics_router,
 )
 
 # ==============================================================================
@@ -62,3 +63,17 @@ app.include_router(copilot_router)
 app.include_router(disruptions_router)
 app.include_router(query_router)
 app.include_router(ml_router)
+app.include_router(analytics_router)
+
+# Pre-warm analytics cache in background thread on startup
+import threading
+def _warmup_analytics_cache():
+    try:
+        from app.routers.analytics import get_analytics_overview
+        from app.core.security import User
+        get_analytics_overview(current_user=User(username="system_warmup", role="admin"))
+    except Exception as e:
+        pass
+
+threading.Thread(target=_warmup_analytics_cache, daemon=True).start()
+

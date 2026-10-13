@@ -9,6 +9,7 @@ from app.routers.disruptions import router as disruptions_router
 from app.routers.query import router as query_router
 from app.routers.ml import router as ml_router
 from app.routers.health import router as health_router
+from app.routers.analytics import router as analytics_router
 
 __all__ = [
     "auth_router",
@@ -17,4 +18,5 @@ __all__ = [
     "query_router",
     "ml_router",
     "health_router",
+    "analytics_router",
 ]

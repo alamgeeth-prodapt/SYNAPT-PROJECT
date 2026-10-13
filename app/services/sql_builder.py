@@ -376,7 +376,29 @@ def select_schema_for_task(query: str) -> dict[str, Any]:
         "filter_columns": sorted(list(set(selected_filter_cols))),
         "projection_columns": projection_cols,
         "is_aggregation": is_aggregation,
+        "schema_source": "local_ontology",
     }
+
+
+async def select_schema_for_task_async(query: str, use_synapt: bool = True) -> dict[str, Any]:
+    """
+    Step 1 (Dynamic Synapt Schema Selection):
+    Uses Synapt Trident MCP knowledge graph to dynamically identify the target view,
+    filter columns, and projection structure.
+    Always maintains the local rule-based ontology selector as a seamless fallback.
+    """
+    if use_synapt:
+        try:
+            async with SynaptService() as synapt:
+                synapt_schema = await synapt.select_schema_for_task(query)
+                if synapt_schema.get("filter_columns"):
+                    return synapt_schema
+        except Exception:
+            pass
+
+    local_schema = select_schema_for_task(query)
+    local_schema["schema_source"] = "local_ontology_fallback"
+    return local_schema
 
 
 # ==============================================================================
@@ -578,21 +600,21 @@ Rules:
 6. Output ONLY the raw SQL query with no explanation, no backticks, and no markdown formatting.
 """
 
-        for model_name in ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash"]:
-            try:
-                response = client.models.generate_content(
-                    model=model_name,
-                    contents=prompt,
-                )
-                raw_text = response.text.strip() if response and response.text else ""
-                raw_text = re.sub(r"^```(?:sql)?\s*", "", raw_text, flags=re.IGNORECASE)
-                raw_text = re.sub(r"\s*```$", "", raw_text).strip()
+        model_name = "gemini-3.5-flash-lite"
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+            )
+            raw_text = response.text.strip() if response and response.text else ""
+            raw_text = re.sub(r"^```(?:sql)?\s*", "", raw_text, flags=re.IGNORECASE)
+            raw_text = re.sub(r"\s*```$", "", raw_text).strip()
 
-                if raw_text.upper().startswith("SELECT"):
-                    valid = validate_sql_query(raw_text)
-                    return valid, f"gemini_sql_builder ({model_name})"
-            except Exception:
-                continue
+            if raw_text.upper().startswith("SELECT"):
+                valid = validate_sql_query(raw_text)
+                return valid, f"gemini_sql_builder ({model_name})"
+        except Exception:
+            pass
 
     except Exception:
         pass
@@ -665,8 +687,25 @@ def build_and_execute_sql(query: str, limit: int = 50, use_synapt: bool = True) 
     """
     start_time = time.time()
 
-    # 1. Schema Selection
-    schema_spec = select_schema_for_task(query)
+    # 1. Schema Selection: Synapt Knowledge Graph first, local fallback
+    if use_synapt:
+        try:
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+            if loop and loop.is_running():
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    schema_spec = pool.submit(asyncio.run, select_schema_for_task_async(query, use_synapt=True)).result()
+            else:
+                schema_spec = asyncio.run(select_schema_for_task_async(query, use_synapt=True))
+        except Exception:
+            schema_spec = select_schema_for_task(query)
+            schema_spec["schema_source"] = "local_ontology_fallback"
+    else:
+        schema_spec = select_schema_for_task(query)
+        schema_spec["schema_source"] = "local_ontology"
 
     # 2. Just-In-Time Value Injection (via Synapt Trident MCP)
     injected_classes = get_classes_for_columns(schema_spec["filter_columns"], use_synapt=use_synapt)
@@ -694,6 +733,7 @@ def build_and_execute_sql(query: str, limit: int = 50, use_synapt: bool = True) 
     return {
         "user_query": query,
         "selected_filter_columns": schema_spec["filter_columns"],
+        "schema_source": schema_spec.get("schema_source", "synapt_trident_mcp"),
         "injected_classes_count": len(injected_classes),
         "classes_source": classes_source,
         "generated_sql": validated_sql,
@@ -711,10 +751,13 @@ async def build_and_execute_sql_async(
     """
     Asynchronous version of build_and_execute_sql leveraging native async
     SynaptService calls for FastAPI endpoints and multi-agent workflows.
+    Mainly uses Synapt for schema and column values, with local ontology fallback.
     """
     start_time = time.time()
-    schema_spec = select_schema_for_task(query)
+    # 1. Schema Selection: Synapt Knowledge Graph first, local fallback
+    schema_spec = await select_schema_for_task_async(query, use_synapt=use_synapt)
 
+    # 2. Value Injection: Synapt Trident MCP knowledge graph first, local fallback
     synapt_classes = {}
     if use_synapt:
         synapt_classes = await fetch_synapt_classes_for_columns(schema_spec["filter_columns"])
@@ -750,6 +793,7 @@ async def build_and_execute_sql_async(
     return {
         "user_query": query,
         "selected_filter_columns": schema_spec["filter_columns"],
+        "schema_source": schema_spec.get("schema_source", "synapt_trident_mcp"),
         "injected_classes_count": len(injected_classes),
         "classes_source": classes_source,
         "generated_sql": validated_sql,

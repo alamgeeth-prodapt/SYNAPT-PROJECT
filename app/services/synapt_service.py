@@ -236,6 +236,92 @@ class SynaptService:
         self._schema_cache[provider_id] = result
         return result
 
+    async def select_schema_for_task(self, query: str, provider_id: str | None = None) -> dict[str, Any]:
+        """
+        Queries Synapt Trident MCP knowledge graph to dynamically identify the relevant
+        database view, filter columns, and projection structure for a user question.
+        """
+        known_columns = [
+            "disruption_id",
+            "disruption_type",
+            "industry",
+            "supplier_tier",
+            "supplier_region",
+            "supplier_size",
+            "has_backup_supplier",
+            "disruption_severity",
+            "production_impact_pct",
+            "revenue_loss_usd",
+            "response_type",
+            "response_time_days",
+            "partial_recovery_days",
+            "full_recovery_days",
+            "permanent_supplier_change",
+            "resilience_score",
+            "prioritization_level",
+            "top_risk_driver",
+            "recommended_strategy",
+        ]
+        columns_str = ", ".join(known_columns)
+        question = (
+            f"Given the database schema for supply_chain_db and the view v_disruption_details "
+            f"(columns: {columns_str}), "
+            f"which filter columns and target view are relevant for the query: '{query}'? "
+            f"Explicitly list the specific column names to filter on."
+        )
+        res = await self.query(question, top_k=3, provider_id=provider_id)
+        raw_answer = res.get("answer", "") if isinstance(res, dict) else str(res)
+
+        target_view = "v_disruption_details"
+        if "disruptions" in raw_answer.lower() and "v_disruption_details" not in raw_answer.lower():
+            target_view = "disruptions"
+
+        found_cols = []
+        for col in known_columns:
+            if re.search(rf"\b{re.escape(col)}\b", raw_answer, re.IGNORECASE):
+                found_cols.append(col)
+
+        is_aggregation = any(
+            re.search(rf"\b{re.escape(term)}\b", query, re.IGNORECASE)
+            for term in ["average", "avg", "mean", "count", "sum", "rate", "compare", "breakdown", "group by"]
+        )
+
+        if is_aggregation:
+            projection_cols = ["COUNT(*) AS incident_count"]
+            if any(re.search(rf"\b{re.escape(t)}\b", query, re.IGNORECASE) for t in ["revenue", "financial", "loss"]):
+                projection_cols.append("AVG(revenue_loss_usd) AS avg_revenue_loss")
+            if any(re.search(rf"\b{re.escape(t)}\b", query, re.IGNORECASE) for t in ["recovery", "days", "time"]):
+                projection_cols.append("AVG(full_recovery_days) AS avg_recovery_days")
+            if any(re.search(rf"\b{re.escape(t)}\b", query, re.IGNORECASE) for t in ["impact", "downtime"]):
+                projection_cols.append("AVG(production_impact_pct) AS avg_downtime_pct")
+            if re.search(r"\bresilience\b", query, re.IGNORECASE):
+                projection_cols.append("AVG(resilience_score) AS avg_resilience_score")
+        else:
+            projection_cols = [
+                "disruption_id",
+                "disruption_type",
+                "industry",
+                "supplier_tier",
+                "supplier_region",
+                "disruption_severity",
+                "production_impact_pct",
+                "revenue_loss_usd",
+                "response_type",
+                "full_recovery_days",
+                "resilience_score",
+                "prioritization_level",
+                "top_risk_driver",
+            ]
+
+        return {
+            "target_view": target_view,
+            "filter_columns": sorted(list(set(found_cols))),
+            "projection_columns": projection_cols,
+            "is_aggregation": is_aggregation,
+            "schema_source": "synapt_trident_mcp",
+            "synapt_guidance": raw_answer,
+        }
+
     async def get_column_classes(
         self,
         columns: list[str] | None = None,
@@ -397,11 +483,96 @@ class SynaptService:
 
     async def retrieve_sop_chunks(self, query: str, top_k: int = 5) -> dict[str, Any]:
         """
-        Retrieves relevant SOP clauses and chunks directly from Synapt SOP Retriever (supply_chain_sop)
-        acting as an embedding/vector storage system (similar to ChromaDB).
-        Retrieves the actual document text and chunks ingested in Synapt without searching local SOP directory.
+        Retrieves relevant SOP procedures and structured operational steps directly from
+        Synapt Trident MCP using `trident_get_procedures` as the primary procedure-based engine.
+        Falls back to semantic embedding chunks (`trident_get_chunks` / `trident_query`) if no
+        structured procedures match the inquiry.
         """
-        # Step 1: Run semantic retrieval query against Synapt embedding store
+        # Step 1: Query procedure-based tool (trident_get_procedures)
+        procedures = []
+        try:
+            procs_call = await self.get_procedures(query=query, provider_id=self.sop_provider_id)
+            if isinstance(procs_call, list) and procs_call:
+                procedures = procs_call
+        except Exception as e:
+            print(f"trident_get_procedures error: {e}")
+
+        if procedures:
+            primary_proc = procedures[0]
+            proc_name = primary_proc.get("name", "Standard Operating Procedure")
+            proc_intent = primary_proc.get("intent", "")
+            steps = primary_proc.get("steps", [])
+
+            lines = [
+                f"### Protocol: {proc_name}",
+                f"**Operational Mandate:** {proc_intent}",
+                "\n**Governing SOP Action Checklist:**",
+            ]
+            document_chunks = []
+            formatted_chunks = {}
+
+            for s in steps:
+                s_num = s.get("step_number")
+                s_desc = s.get("description", "")
+                s_resp = s.get("responsibilities", "Operations Team")
+                s_pre = s.get("pre_requisite", "")
+
+                lines.append(f"{s_num}. **Step {s_num}:** {s_desc} *(Responsibility: {s_resp})*")
+
+                c_id = f"{proc_name[:8].strip()}_Step_{s_num}"
+                c_text = f"Step {s_num}: {s_desc} [Prerequisite: {s_pre or 'None'}] [Responsibility: {s_resp}]"
+                document_chunks.append({
+                    "chunk_id": c_id,
+                    "text": c_text,
+                    "source_file": proc_name,
+                    "doc_type": "procedure_step",
+                    "step_number": s_num,
+                    "responsibilities": s_resp,
+                })
+                formatted_chunks[f"step_{s_num}_{c_id[:12]}"] = {
+                    "chunk_id": c_id,
+                    "source_document": proc_name,
+                    "content": c_text,
+                }
+
+            # If secondary procedures were returned, append them as supporting reference chunks
+            for p_idx, sec_proc in enumerate(procedures[1:3], 2):
+                sec_name = sec_proc.get("name", f"Secondary Playbook {p_idx}")
+                sec_intent = sec_proc.get("intent", "")
+                sec_steps = sec_proc.get("steps", [])
+                summary_text = f"Secondary Guideline: {sec_name}. Mandate: {sec_intent}. Key actions: " + "; ".join(
+                    [f"Step {st.get('step_number')}: {st.get('description')[:120]}" for st in sec_steps[:3]]
+                )
+                document_chunks.append({
+                    "chunk_id": f"PROC_SEC_{p_idx}",
+                    "text": summary_text,
+                    "source_file": sec_name,
+                    "doc_type": "secondary_procedure",
+                })
+                formatted_chunks[f"playbook_{p_idx}"] = {
+                    "chunk_id": f"PROC_SEC_{p_idx}",
+                    "source_document": sec_name,
+                    "content": summary_text,
+                }
+
+            live_answer = "\n".join(lines)
+            return {
+                "provider": self.sop_provider_id,
+                "tool_used": "trident_get_procedures",
+                "storage_system": "Synapt Trident Procedure Knowledge Graph",
+                "query": query,
+                "playbook_title": proc_name,
+                "answer": live_answer,
+                "synapt_live_answer": live_answer,
+                "chunks_count": len(document_chunks),
+                "procedures_count": len(procedures),
+                "procedures": procedures,
+                "document_chunks": document_chunks,
+                "chunks": formatted_chunks,
+                "source": "synapt_procedure_retriever",
+            }
+
+        # Step 2: Fallback to semantic query (trident_query + trident_get_chunks) if no procedures matched
         synapt_result = None
         raw_chunks = []
         try:
@@ -413,7 +584,6 @@ class SynaptService:
         except Exception as e:
             synapt_result = {"error": f"Synapt query failed: {str(e)}"}
 
-        # Step 2: Retrieve raw document chunks from Synapt vector storage
         try:
             chunks_call = await self.get_chunks(
                 query=query,
@@ -423,11 +593,9 @@ class SynaptService:
             if isinstance(chunks_call, list):
                 raw_chunks = chunks_call
         except Exception:
-            # Fall back to chunks returned in trident_query if get_chunks tool encounters error
             if isinstance(synapt_result, dict) and synapt_result.get("chunks"):
                 raw_chunks = synapt_result.get("chunks", [])
 
-        # Step 3: Extract actual information from document chunks
         formatted_chunks = {}
         document_chunks = []
         for idx, chunk in enumerate(raw_chunks):
@@ -445,21 +613,21 @@ class SynaptService:
                     "doc_type": c_type,
                     "score": c_score,
                 })
-                # Key for structured display
                 formatted_chunks[f"chunk_{idx+1}_{c_id[:12]}"] = {
                     "chunk_id": c_id,
                     "source_document": c_src,
                     "content": c_text,
                 }
 
-        # Step 4: Extract grounded answer synthesized by Synapt directly from ingested document
         live_answer = synapt_result.get("answer") if isinstance(synapt_result, dict) else None
         chunks_used_ids = synapt_result.get("chunks_used", []) if isinstance(synapt_result, dict) else []
 
         return {
             "provider": self.sop_provider_id,
+            "tool_used": "trident_query",
             "storage_system": "Synapt Trident Vector & Graph Store",
             "query": query,
+            "playbook_title": "Standard Operating Procedures",
             "answer": live_answer,
             "synapt_live_answer": live_answer,
             "chunks_count": len(document_chunks),

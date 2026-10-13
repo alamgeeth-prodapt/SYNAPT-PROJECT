@@ -25,6 +25,7 @@ class SQLQueryRequest(BaseModel):
 class SQLQueryResponse(BaseModel):
     user_query: str
     selected_filter_columns: list[str]
+    schema_source: str = "synapt_trident_mcp"
     injected_classes_count: int
     classes_source: str
     generated_sql: str

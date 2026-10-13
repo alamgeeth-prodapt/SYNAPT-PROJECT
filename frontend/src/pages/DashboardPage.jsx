@@ -4,9 +4,11 @@ import { useAuth } from '../context/AuthContext';
 import { Activity } from 'lucide-react';
 
 import DisruptionsTable from '../components/DisruptionsTable';
+import DisruptionAnalytics from '../components/DisruptionAnalytics';
 import CrisisResponseCenter from '../components/CrisisResponseCenter';
 import SQLConsole from '../components/SQLConsole';
 import ExecutiveCopilot from '../components/ExecutiveCopilot';
+import { prefetchAnalyticsOverview } from '../api/analytics';
 
 export default function DashboardPage() {
   const { user, isAuthenticated, loading } = useAuth();
@@ -24,6 +26,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (isAuthenticated) {
+      prefetchAnalyticsOverview();
       fetch('/health')
         .then((res) => res.json())
         .then((data) => setHealth(data))
@@ -48,6 +51,7 @@ export default function DashboardPage() {
   };
 
   const dashboardTabs = [
+    { id: 'analytics', name: 'Disruption analytics' },
     { id: 'table', name: 'Disruption history' },
     { id: 'crisis', name: 'Crisis response' },
     { id: 'sql', name: 'SQL assistant' },
@@ -92,6 +96,7 @@ export default function DashboardPage() {
         })}
       </div>
 
+      {activeTab === 'analytics' && <DisruptionAnalytics />}
       {activeTab === 'table' && <DisruptionsTable onSelectIncident={handleAnalyzeFromTable} />}
       {activeTab === 'crisis' && <CrisisResponseCenter prefilledIncident={selectedIncident} />}
       {activeTab === 'sql' && <SQLConsole />}

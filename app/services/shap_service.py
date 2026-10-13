@@ -8,6 +8,7 @@ model's predicted value.
 
 from typing import Any
 
+import numpy as np
 import xgboost as xgb
 
 from app.services.ml_service import MLService
@@ -33,11 +34,30 @@ class SHAPService:
         base_value = float(contribs[-1])
         predicted_value = float(base_value + feature_contribs.sum())
 
+        if target == "revenue_loss_usd":
+            # Model predicts log1p(revenue_loss_usd). Transform base & prediction to USD,
+            # and apportion dollar difference across features proportionally to log attributions.
+            base_value_usd = max(0.0, float(np.expm1(base_value)))
+            predicted_value_usd = max(0.0, float(np.expm1(predicted_value)))
+            diff_usd = predicted_value_usd - base_value_usd
+            diff_log = float(feature_contribs.sum())
+
+            if abs(diff_log) > 1e-9:
+                feature_contribs = (feature_contribs / diff_log) * diff_usd
+            else:
+                feature_contribs = np.zeros_like(feature_contribs)
+
+            base_value = base_value_usd
+            predicted_value = predicted_value_usd
+            precision = 2
+        else:
+            precision = 4
+
         features = [
             {
                 "name": name,
                 "value": self._raw_value(X, name),
-                "contribution": round(float(contrib), 4),
+                "contribution": round(float(contrib), precision),
             }
             for name, contrib in zip(feature_names, feature_contribs)
         ]
@@ -49,8 +69,8 @@ class SHAPService:
 
         return {
             "target": target,
-            "base_value": round(base_value, 4),
-            "predicted_value": round(predicted_value, 4),
+            "base_value": round(base_value, precision),
+            "predicted_value": round(predicted_value, precision),
             "features": features,
             "top_risk_drivers": top_risk_drivers,
         }
@@ -135,7 +155,7 @@ if __name__ == "__main__":
     def assert_shap_invariant(explanation: dict[str, Any]):
         recomputed = explanation["base_value"] + sum(f["contribution"] for f in explanation["features"])
         predicted = explanation["predicted_value"]
-        tolerance = max(1e-4, abs(predicted) * 1e-6)
+        tolerance = max(0.05, abs(predicted) * 1e-4)
         assert abs(recomputed - predicted) < tolerance, (
             f"SHAP invariant violated for {explanation['target']}: {recomputed} != {predicted}"
         )

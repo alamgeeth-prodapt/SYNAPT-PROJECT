@@ -1,0 +1,45 @@
+{
+  "disruption_id": "DIS-000010",
+  "actual": {
+    "disruption_id": "DIS-000010",
+    "disruption_type": "Port Congestion",
+    "industry": "Electronics",
+    "supplier_tier": "1",
+    "supplier_region": "Asia-Pacific",
+    "supplier_size": "Large",
+    "has_backup_supplier": 0,
+    "disruption_severity": "3",
+    "production_impact_pct": 55.1,
+    "revenue_loss_usd": 13234325.81,
+    "response_type": "Production Reroute",
+    "response_time_days": 29,
+    "partial_recovery_days": 22,
+    "full_recovery_days": 103,
+    "permanent_supplier_change": 0,
+    "resilience_score": 73.77,
+    "prioritization_level": "P2-High",
+    "top_risk_driver": "Lack of Redundant Backup Supplier",
+    "recommended_strategy": "Customer Delay"
+  },
+  "prediction_chained": {
+    "incident": {
+      "disruption_type": "Port Congestion",
+      "industry": "Electronics",
+      "supplier_tier": 1,
+      "supplier_region": "Asia-Pacific",
+      "supplier_size": "Large",
+      "has_backup_supplier": 0,
+      "disruption_severity": 3,
+      "response_type": "Production Reroute",
+      "response_time_days": 29,
+      "partial_recovery_days": 22,
+      "permanent_supplier_change": 0
+    },
+    "predicted_impact_pct": 45.1,
+    "predicted_revenue_loss_usd": 4344771.3,
+    "predicted_full_recovery_days": 101.3,
+    "resilience_score": 44.51,
+    "prioritization_level": "P2-High"
+  },
+  "direct_revenue_loss_usd": 5874048.41
+}

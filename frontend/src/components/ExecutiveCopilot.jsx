@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useAuth } from '../context/AuthContext';
 import {
   MessageSquare,
   Send,
-  Sparkles,
   Bot,
   User,
   CheckCircle2,
@@ -163,14 +164,13 @@ export default function ExecutiveCopilot() {
             Executive AI Copilot
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Routes queries to specialized workers (SOP, SQL, ML) and synthesizes audited reports via Gemini 3.5 Flash-Lite & 2.0 Flash.
+            Routes queries to specialized workers (SOP, SQL, ML) and synthesizes audited reports via Gemini 3.5 Flash-Lite & 3.1 Flash-Lite.
           </p>
         </div>
 
         <div className="flex items-center space-x-2">
           <span className="text-[11px] font-semibold bg-emerald-50 text-emerald-900 border border-emerald-200 px-2.5 py-1 rounded-full font-mono flex items-center gap-1">
-            <Sparkles className="w-3 h-3 text-emerald-600" />
-            Gemini 3.5 Flash-Lite + Reviewer
+            Gemini 3.5 Flash-Lite + 3.1 Flash-Lite Reviewer
           </span>
           <button
             onClick={handleClearChat}
@@ -218,7 +218,7 @@ export default function ExecutiveCopilot() {
                     <ol className="text-xs text-slate-600 list-decimal list-inside space-y-0.5 pt-1">
                       <li>Use <strong>LangGraph Supervisor</strong> to classify intent (SOP, SQL Analytics, or Predictive Impact).</li>
                       <li>Query <strong>Synapt SOP Retriever</strong> (<code>supply_chain_sop</code>) or <strong>Schema Retriever</strong> (<code>sql_schema_supply_chain</code>).</li>
-                      <li>Build safe read-only SQL via <strong>Gemini 2.0 Flash</strong> against 100,000 historical MySQL records.</li>
+                      <li>Build safe read-only SQL via <strong>Gemini 3.1 Flash-Lite</strong> against 100,000 historical MySQL records.</li>
                       <li>Compute <strong>XGBoost predictive forecasts</strong> for downtime %, revenue loss, and recovery days.</li>
                       <li>Pass context to <strong>CrewAI</strong> where <strong>Agent 1 (Drafter)</strong> generates the report/playbook and <strong>Agent 2 (Reviewer)</strong> audits fact consistency.</li>
                     </ol>
@@ -328,6 +328,43 @@ export default function ExecutiveCopilot() {
 
 
 /**
+ * Normalizes executive markdown reports by ensuring headers and inline bullets
+ * are properly separated with blank lines and formatting artifacts are removed.
+ */
+function normalizeReportMarkdown(raw) {
+  if (!raw) return '';
+  let text = String(raw).replace(/\r\n/g, '\n');
+
+  // 1. Remove duplicate/nested bullet markers on the same line (e.g. "* * Text" -> "* Text")
+  text = text.replace(/^([\t ]*)[*•-][\t ]+[*•-][\t ]+/gm, '$1* ');
+
+  // 2. Remove orphaned empty bullets (a line that has ONLY an asterisk/bullet and nothing else)
+  text = text.replace(/^([\t ]*)[*•-][\t ]*$/gm, '');
+
+  // 3. Break headings stuck to previous paragraphs (e.g. "recovered.## Empirical")
+  text = text.replace(/([^\n])[\t ]*(#{1,4}[\t ]+)/g, '$1\n\n$2');
+
+  // 4. Break inline bullets that lack preceding newlines:
+  // e.g. "interventions: * **Containment:** ..." or ". * **Supplier:** ..."
+  // Matches a standalone bullet symbol not part of '**'
+  text = text.replace(/([^\n])[\t ]+(?<!\*)[*•-](?!\*)[\t ]+/g, '$1\n\n* ');
+
+  // 5. Break unspaced numbered list items with bold titles (e.g. ": 1. **Item**" or ". 2. **Item**")
+  text = text.replace(/([^\n])[\t ]*(\d+\.[\t ]+\*\*)/g, '$1\n\n$2');
+
+  // 6. Fix accidental triple asterisks touching words (e.g. "***Containment" -> "* **Containment")
+  text = text.replace(/(\n|^)[\t ]*\*\*\*(?!\*)([A-Za-z0-9])/g, '$1* **$2');
+
+  // 7. Ensure horizontal rules (--- or ***) stand alone on their own lines
+  text = text.replace(/([^\n])[\t ]*(\*{3,}|-{3,})[\t ]*([^\n])/g, '$1\n\n$2\n\n$3');
+
+  // 8. Consolidate excessive blank lines
+  text = text.replace(/\n{3,}/g, '\n\n').trim();
+
+  return text;
+}
+
+/**
  * Formatted Assistant Intelligence Report Card
  */
 function AssistantResponseCard({ data }) {
@@ -432,28 +469,71 @@ function AssistantResponseCard({ data }) {
       )}
 
       {/* Main 400-500 Word Final Report Body */}
-      <div className="prose prose-slate max-w-none text-xs sm:text-sm text-slate-800 leading-relaxed font-sans space-y-3.5">
-        {data.final_report.split('\n\n').map((paragraph, pIdx) => {
-          if (paragraph.startsWith('# ')) {
-            return (
-              <h1 key={pIdx} className="text-lg font-extrabold text-slate-950 tracking-tight border-b border-slate-200 pb-2">
-                {paragraph.replace('# ', '')}
-              </h1>
-            );
-          }
-          if (paragraph.startsWith('### ')) {
-            return (
-              <h3 key={pIdx} className="text-sm font-bold text-slate-950 tracking-tight pt-2">
-                {paragraph.replace('### ', '')}
-              </h3>
-            );
-          }
-          return (
-            <p key={pIdx} className="text-slate-800">
-              {paragraph}
-            </p>
-          );
-        })}
+      <div className="bg-white border border-slate-200/90 rounded-xl p-6 text-slate-800 font-sans shadow-xs">
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={{
+            h1: ({ node, ...props }) => (
+              <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight border-b border-slate-200/80 pb-3 mt-1 mb-4 flex items-center gap-2" {...props} />
+            ),
+            h2: ({ node, ...props }) => (
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight mt-6 mb-3 pb-2 border-b border-slate-200/60 flex items-center gap-2 text-indigo-950" {...props} />
+            ),
+            h3: ({ node, ...props }) => (
+              <h3 className="text-xs sm:text-sm font-bold text-slate-900 tracking-tight mt-4 mb-2" {...props} />
+            ),
+            h4: ({ node, ...props }) => (
+              <h4 className="text-xs font-semibold text-slate-900 mt-3 mb-1.5" {...props} />
+            ),
+            p: ({ node, ...props }) => (
+              <p className="text-xs sm:text-sm text-slate-700 leading-relaxed mb-3.5 font-normal" {...props} />
+            ),
+            strong: ({ node, ...props }) => (
+              <strong className="font-semibold text-slate-950" {...props} />
+            ),
+            em: ({ node, ...props }) => (
+              <em className="italic text-slate-800" {...props} />
+            ),
+            ul: ({ node, ...props }) => (
+              <ul className="space-y-2.5 my-3 pl-5 list-disc text-slate-700 text-xs sm:text-sm marker:text-indigo-600" {...props} />
+            ),
+            ol: ({ node, ...props }) => (
+              <ol className="space-y-2.5 my-3 pl-5 list-decimal text-slate-700 text-xs sm:text-sm marker:font-semibold marker:text-slate-800" {...props} />
+            ),
+            li: ({ node, ...props }) => (
+              <li className="leading-relaxed pl-1" {...props} />
+            ),
+            blockquote: ({ node, ...props }) => (
+              <blockquote className="border-l-4 border-indigo-500 bg-indigo-50/40 pl-4 py-2.5 my-3.5 italic text-xs sm:text-sm text-slate-700 rounded-r-lg" {...props} />
+            ),
+            code: ({ node, inline, ...props }) => (
+              inline ? (
+                <code className="bg-slate-100 text-slate-800 font-mono text-xs px-1.5 py-0.5 rounded border border-slate-200/80 font-medium" {...props} />
+              ) : (
+                <code className="block bg-slate-900 text-slate-100 font-mono text-xs p-3.5 rounded-lg overflow-x-auto my-3" {...props} />
+              )
+            ),
+            table: ({ node, ...props }) => (
+              <div className="overflow-x-auto my-4 border border-slate-200 rounded-lg shadow-2xs">
+                <table className="min-w-full divide-y divide-slate-200 text-xs" {...props} />
+              </div>
+            ),
+            thead: ({ node, ...props }) => (
+              <thead className="bg-slate-100 text-slate-700 font-semibold" {...props} />
+            ),
+            th: ({ node, ...props }) => (
+              <th className="px-3 py-2 text-left text-xs font-bold text-slate-900 uppercase tracking-wider" {...props} />
+            ),
+            td: ({ node, ...props }) => (
+              <td className="px-3 py-2 text-xs text-slate-700 border-t border-slate-100" {...props} />
+            ),
+            hr: ({ node, ...props }) => (
+              <hr className="my-5 border-slate-200" {...props} />
+            ),
+          }}
+        >
+          {normalizeReportMarkdown(data.final_report)}
+        </ReactMarkdown>
       </div>
 
       {/* Expandable SOP Playbook Chunks Drawer */}
@@ -468,9 +548,14 @@ function AssistantResponseCard({ data }) {
               <span>
                 Synapt SOP Playbook: {data.sop_data.playbook_title || data.sop_data.sop_id || 'Standard Operating Procedures'} ({data.sop_data.provider || 'supply_chain_sop'})
               </span>
+              {data.sop_data.tool_used && (
+                <span className="bg-purple-200/80 text-purple-900 font-mono px-1.5 py-0.5 rounded text-[10px]">
+                  {data.sop_data.tool_used}
+                </span>
+              )}
             </div>
             <div className="flex items-center space-x-2 text-purple-700 font-mono text-[11px]">
-              <span>{data.sop_data.chunks ? Object.keys(data.sop_data.chunks).length : 6} Chunks</span>
+              <span>{data.sop_data.document_chunks ? data.sop_data.document_chunks.length : (data.sop_data.chunks ? Object.keys(data.sop_data.chunks).length : 6)} Steps</span>
               {showSOP ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </div>
           </button>
@@ -481,9 +566,17 @@ function AssistantResponseCard({ data }) {
                 data.sop_data.document_chunks.map((chunk, cIdx) => (
                   <div key={chunk.chunk_id || cIdx} className="border border-purple-100 rounded-lg p-3 bg-purple-50/30 space-y-1">
                     <div className="flex items-center justify-between text-[11px] font-mono">
-                      <span className="font-bold text-purple-950">Chunk {cIdx + 1}: {chunk.chunk_id}</span>
+                      <span className="font-bold text-purple-950">
+                        {chunk.doc_type === 'procedure_step' ? `Step ${chunk.step_number || cIdx + 1}: ` : `Chunk ${cIdx + 1}: `}
+                        {chunk.chunk_id}
+                      </span>
                       <span className="text-purple-700 bg-purple-100/80 px-2 py-0.5 rounded text-[10px]">{chunk.source_file || 'supply_chain_sop'}</span>
                     </div>
+                    {chunk.responsibilities && (
+                      <div className="text-[11px] text-indigo-700 font-medium">
+                        Responsibility: {chunk.responsibilities}
+                      </div>
+                    )}
                     <p className="text-slate-800 whitespace-pre-line leading-relaxed font-sans text-xs">
                       {chunk.text}
                     </p>

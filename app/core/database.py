@@ -42,6 +42,8 @@ DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAM
 # Local server, no SSL/CA cert required (unlike the AWS RDS connector in sql/db.py).
 engine = create_engine(
     DATABASE_URL,
+    pool_size=10,
+    max_overflow=20,
     pool_recycle=3600,
     echo=False,
 )

@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   Play,
-  Sparkles,
   Layers,
   ArrowRight
 } from 'lucide-react';

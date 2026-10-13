@@ -64,7 +64,7 @@ async def copilot_status(
         "live_llm_available": orchestrator.has_live_llm,
         "provider": provider,
         "framework": "LangGraph Supervisor + Google ADK + CrewAI",
-        "primary_llm": "Google Gemini (gemini-3.5-flash-lite / gemini-2.0-flash)"
+        "primary_llm": "Google Gemini (gemini-3.5-flash-lite)"
         if orchestrator.gemini_api_key
         else "Anthropic Claude (claude-3-5-sonnet)"
         if orchestrator.anthropic_api_key
@@ -72,10 +72,10 @@ async def copilot_status(
         if orchestrator.openai_api_key
         else "Deterministic Empirical Synthesis Engine",
         "models": {
-            "supervisor": "gemini-2.0-flash-lite",
+            "supervisor": "gemini-3.5-flash-lite",
             "drafter": "gemini-3.5-flash-lite",
-            "reviewer": "gemini-2.0-flash-lite",
-            "sql": "gemini-2.0-flash",
+            "reviewer": "gemini-3.5-flash-lite",
+            "sql": "gemini-3.5-flash-lite",
         },
         "agents": [
             {

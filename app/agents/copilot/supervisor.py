@@ -20,10 +20,27 @@ async def supervisor(state: CopilotSupervisorState) -> CopilotSupervisorState:
     if "_plan" not in context:
         plan = []
         q_lower = query.lower()
-
         is_sop = any(w in q_lower for w in ["sop", "procedure", "checklist", "playbook", "containment", "sla", "protocol"])
         is_sql = any(w in q_lower for w in ["historical", "past", "history", "records", "database", "average", "avg", "count", "cases", "sql", "cohort", "v_disruption_details"])
         is_predictive = any(w in q_lower for w in ["predict", "forecast", "projection", "expected loss", "estimate loss", "future loss"])
+
+        # Domain keywords indicating an actual supply chain crisis scenario
+        crisis_keywords = [
+            "disruption", "disruptions", "crisis", "incident", "incidents", "outage", "downtime",
+            "cyber", "attack", "hack", "ransomware",
+            "port", "congestion", "shipping", "freight", "logistics", "maritime",
+            "strike", "labor", "walkout", "union",
+            "geopolitical", "tariff", "sanctions", "war", "embargo",
+            "natural disaster", "disaster", "earthquake", "flood", "typhoon", "tsunami", "hurricane", "storm",
+            "factory", "plant", "fire", "explosion",
+            "supplier", "suppliers", "vendor", "vendors", "supply chain",
+            "tier 1", "tier-1", "tier 2", "tier-2", "tier 3", "tier-3", "tier 4", "tier-4",
+            "mitigation", "reroute", "backup supplier", "dual source", "dual-source",
+            "revenue loss", "production impact", "recovery days", "resilience",
+            "aerospace", "automotive", "electronics", "pharmaceuticals", "consumer goods",
+            "asia-pacific", "apac", "europe", "north america", "latin america", "middle east",
+        ]
+        is_crisis = any(w in q_lower for w in crisis_keywords)
 
         if is_sop and not is_sql:
             intent = "sop"
@@ -38,12 +55,15 @@ async def supervisor(state: CopilotSupervisorState) -> CopilotSupervisorState:
             plan.append("investigation_worker")
             if state.get("include_ml", True):
                 plan.append("impact_worker")
-        else:
+        elif is_crisis:
             intent = "crisis"
             plan.append("sop_retriever")
             plan.append("investigation_worker")
             if state.get("include_ml", True):
                 plan.append("impact_worker")
+        else:
+            # If nothing classifies (e.g. conversational greetings, general inquiries), go directly to CrewAI
+            intent = "general"
 
         # Always finish with customer comms crew (matching D:\Project_2 supervisor pattern)
         plan.append("customer_comms_crew")

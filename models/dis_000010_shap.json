@@ -1,0 +1,168 @@
+{
+  "impact_shap": {
+    "target": "production_impact_pct",
+    "base_value": 31.4427,
+    "predicted_value": 45.1006,
+    "features": [
+      {
+        "name": "disruption_severity",
+        "value": 3,
+        "contribution": 6.8469
+      },
+      {
+        "name": "supplier_tier",
+        "value": 1,
+        "contribution": 6.7557
+      },
+      {
+        "name": "supplier_size",
+        "value": "Large",
+        "contribution": -0.1138
+      },
+      {
+        "name": "has_backup_supplier",
+        "value": 0,
+        "contribution": 0.1045
+      },
+      {
+        "name": "industry",
+        "value": "Electronics",
+        "contribution": 0.0902
+      },
+      {
+        "name": "supplier_region",
+        "value": "Asia-Pacific",
+        "contribution": -0.0174
+      },
+      {
+        "name": "disruption_type",
+        "value": "Port Congestion",
+        "contribution": -0.0083
+      }
+    ],
+    "top_risk_drivers": [
+      "disruption_severity",
+      "supplier_tier",
+      "has_backup_supplier"
+    ]
+  },
+  "revenue_loss_shap": {
+    "target": "revenue_loss_usd",
+    "base_value": 833583.67,
+    "predicted_value": 4344800.3,
+    "features": [
+      {
+        "name": "supplier_size",
+        "value": "Large",
+        "contribution": 2722414.25
+      },
+      {
+        "name": "production_impact_pct",
+        "value": 45.100589752197266,
+        "contribution": 1117467.5
+      },
+      {
+        "name": "industry",
+        "value": "Electronics",
+        "contribution": -379237.34
+      },
+      {
+        "name": "disruption_severity",
+        "value": 3,
+        "contribution": 64436.23
+      },
+      {
+        "name": "supplier_tier",
+        "value": 1,
+        "contribution": -28098.73
+      },
+      {
+        "name": "disruption_type",
+        "value": "Port Congestion",
+        "contribution": 18819.03
+      },
+      {
+        "name": "has_backup_supplier",
+        "value": 0,
+        "contribution": -15524.01
+      },
+      {
+        "name": "supplier_region",
+        "value": "Asia-Pacific",
+        "contribution": 10939.79
+      }
+    ],
+    "top_risk_drivers": [
+      "supplier_size",
+      "production_impact_pct",
+      "disruption_severity"
+    ]
+  },
+  "recovery_shap": {
+    "target": "full_recovery_days",
+    "base_value": 75.8568,
+    "predicted_value": 101.2682,
+    "features": [
+      {
+        "name": "has_backup_supplier",
+        "value": 0,
+        "contribution": 12.1818
+      },
+      {
+        "name": "disruption_severity",
+        "value": 3,
+        "contribution": 11.5754
+      },
+      {
+        "name": "response_time_days",
+        "value": 29,
+        "contribution": 9.5856
+      },
+      {
+        "name": "partial_recovery_days",
+        "value": 22,
+        "contribution": -7.8687
+      },
+      {
+        "name": "response_type",
+        "value": "Production Reroute",
+        "contribution": 5.5737
+      },
+      {
+        "name": "disruption_type",
+        "value": "Port Congestion",
+        "contribution": -3.1466
+      },
+      {
+        "name": "permanent_supplier_change",
+        "value": 0,
+        "contribution": -1.3321
+      },
+      {
+        "name": "industry",
+        "value": "Electronics",
+        "contribution": 0.8935
+      },
+      {
+        "name": "supplier_tier",
+        "value": 1,
+        "contribution": -0.8777
+      },
+      {
+        "name": "supplier_region",
+        "value": "Asia-Pacific",
+        "contribution": -0.6406
+      },
+      {
+        "name": "supplier_size",
+        "value": "Large",
+        "contribution": -0.533
+      }
+    ],
+    "top_risk_drivers": [
+      "has_backup_supplier",
+      "disruption_severity",
+      "response_time_days"
+    ]
+  }
+}

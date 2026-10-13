@@ -19,13 +19,16 @@ export default function Navbar() {
   ];
 
   return (
-    <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-slate-200/80">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-14">
+    <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-slate-200/80 w-full">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-14 w-full">
           <div className="flex items-center gap-8">
-            <Link to="/" className="flex items-baseline gap-2">
-              <span className="font-bold text-slate-950 text-base tracking-tight">Synapt</span>
-              <span className="hidden sm:inline text-xs font-medium text-slate-500 uppercase tracking-wider">Supply Chain Crisis Assistant</span>
+            <Link to="/" className="flex items-center gap-2.5">
+              <img src="/favicon.svg" alt="Synapt" className="w-6 h-6 rounded-lg shadow-2xs shrink-0" />
+              <div className="flex items-baseline gap-2">
+                <span className="font-bold text-slate-950 text-base tracking-tight">Synapt</span>
+                <span className="hidden sm:inline text-xs font-medium text-slate-500 uppercase tracking-wider">Supply Chain Crisis Assistant</span>
+              </div>
             </Link>
 
             <div className="hidden md:flex items-center gap-6">
@@ -48,7 +51,7 @@ export default function Navbar() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4 text-sm">
+          <div className="flex items-center gap-4 text-sm ml-auto">
             {isAuthenticated ? (
               <>
                 <span className="hidden sm:inline text-xs text-slate-600 font-medium">

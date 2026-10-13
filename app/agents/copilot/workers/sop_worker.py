@@ -23,11 +23,12 @@ async def sop_worker(state: CopilotSupervisorState) -> CopilotSupervisorState:
         completed.append("sop_retriever")
     context["_completed_workers"] = completed
 
+    tool_used = sop_data.get("tool_used", "trident_get_procedures")
     trace = state.get("execution_trace", []).copy()
     trace.append({
         "step": str(len(trace) + 1),
         "worker": "SOP Agent (supply_chain_sop)",
-        "output": f"Retrieved {len(sop_data.get('document_chunks', []))} embedding chunks from Synapt",
+        "output": f"Retrieved {len(sop_data.get('document_chunks', []))} structured steps ({sop_data.get('playbook_title', 'Playbook')}) via {tool_used}",
     })
 
     activated = state.get("activated_agents", []).copy()
